@@ -60,6 +60,11 @@ gets counted into `AG1`'s totals.
 
 ## Current result
 
-`npm test` → **5 suites, 22 tests, all failing** against the app as-is —
-one or more tests per bug above. Fixing the underlying bugs (optional
-bonus) would turn these green without changing any test.
+Every test above was first confirmed **failing** against the app exactly as
+downloaded (each one's failure was the proof of its bug — e.g.
+`Expected: 400, Received: 200`, `Expected: "0.8", Received: "1"`).
+
+Bonus: all 17 bugs are now fixed in `server.js`/`public/app.js`/
+`public/index.html`, and `npm test` → **5 suites, 22 tests, all passing** —
+no test was changed to make this happen, only the app code. See the commit
+history for the before/after and exactly what changed per bug.
