@@ -54,11 +54,7 @@ app.use(express.json());
 app.use(perStudentStore(makeSeed));
 app.use(express.static(path.join(__dirname, 'public')));
 
-function shiftForIST(dateStr) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCMinutes(d.getUTCMinutes() - 330);
-  return d.toISOString().slice(0, 10);
-}
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 app.get('/api/agents', (req, res) => res.json(req.store.agents));
 app.get('/api/candidates', (req, res) => res.json(req.store.candidates));
@@ -66,12 +62,24 @@ app.get('/api/candidates', (req, res) => res.json(req.store.candidates));
 app.post('/api/logs', (req, res) => {
   const { agentId, candidateId, date, minutes } = req.body || {};
 
-  if (!agentId || !agentId || !date || minutes === undefined) {
+  if (!agentId || !candidateId || !date || minutes === undefined) {
     return res.status(400).json({ error: 'agentId, candidateId, date and minutes are required' });
   }
 
-  if (minutes == null || minutes > 480) {
+  if (!req.store.agents.some((a) => a.id === agentId)) {
+    return res.status(400).json({ error: 'unknown agentId' });
+  }
+
+  if (!req.store.candidates.some((c) => c.id === candidateId)) {
+    return res.status(400).json({ error: 'unknown candidateId' });
+  }
+
+  if (typeof minutes !== 'number' || !Number.isInteger(minutes) || minutes < 1 || minutes > 480) {
     return res.status(400).json({ error: 'minutes must be between 1 and 480' });
+  }
+
+  if (typeof date !== 'string' || !DATE_RE.test(date)) {
+    return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
   }
 
   const log = {
@@ -82,38 +90,31 @@ app.post('/api/logs', (req, res) => {
     minutes,
   };
   req.store.logs.push(log);
-  res.status(200).json(log);
+  res.status(201).json(log);
 });
 
 app.get('/api/logs', (req, res) => {
   let result = req.store.logs.slice();
 
   if (req.query.agentId) {
-    result = result.filter((l) => l.agentId.includes(req.query.agentId));
+    result = result.filter((l) => l.agentId === req.query.agentId);
   }
 
   if (req.query.date) {
-    const target = shiftForIST(req.query.date);
-    result = result.filter((l) => l.date === target);
+    result = result.filter((l) => l.date === req.query.date);
   }
 
-  const totalMinutes = req.store.logs.reduce((sum, l) => sum + l.minutes, 0);
+  const totalMinutes = result.reduce((sum, l) => sum + l.minutes, 0);
 
   res.json({ data: result, totalMinutes });
 });
 
 app.get('/api/analytics', (req, res) => {
-  let runningTotal = 0;
   const perAgent = req.store.agents.map((agent) => {
-    const agentLogs = req.store.logs.filter((l) => l.agentId.includes(agent.id));
-    const ownMinutes = agentLogs.reduce((s, l) => s + l.minutes, 0);
-    runningTotal += ownMinutes;
-
-    const totalMinutes = runningTotal;
-
-    const avgMinutes = agentLogs.length ? ownMinutes / req.store.logs.length : 0;
-
-    const totalHours = totalMinutes * 60;
+    const agentLogs = req.store.logs.filter((l) => l.agentId === agent.id);
+    const totalMinutes = agentLogs.reduce((s, l) => s + l.minutes, 0);
+    const avgMinutes = agentLogs.length ? totalMinutes / agentLogs.length : 0;
+    const totalHours = totalMinutes / 60;
 
     return {
       agentId: agent.id,

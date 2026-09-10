@@ -32,7 +32,7 @@
         <input type="date" id="date" value="2026-07-24">
       </label>
       <label>Minutes
-        <input type="number" id="minutes" placeholder="1-480">
+        <input type="number" id="minutes" placeholder="1-480" min="1" max="480" required>
       </label>
       <button type="submit">Add Log</button>
     </form>
@@ -58,7 +58,7 @@
   </section>
 
   <section class="card">
-    <h2>Anlytics</h2>
+    <h2>Analytics</h2>
     <table>
       <thead><tr><th>Agent</th><th>Entries</th><th>Total Minutes</th><th>Total Hours</th><th>Avg Minutes/Entry</th></tr></thead>
       <tbody id="analyticsRows"></tbody>

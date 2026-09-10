@@ -31,6 +31,11 @@ async function init() {
   loadAnalytics();
 }
 
+function formatDateDMY(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${d}-${m}-${y}`;
+}
+
 async function loadLogs() {
   const params = new URLSearchParams();
   const agentId = document.getElementById('filterAgentId').value;
@@ -48,9 +53,9 @@ async function loadLogs() {
     tr.innerHTML = `
       <td>${agent ? agent.name : log.agentId}</td>
       <td>${candidate ? candidate.name : log.candidateId}</td>
-      <td>${log.date}</td>
+      <td>${formatDateDMY(log.date)}</td>
       <td>${log.minutes}</td>
-      <td>${(log.minutes / 60).toFixed(0)}</td>
+      <td>${(log.minutes / 60).toFixed(1)}</td>
     `;
     rows.appendChild(tr);
   }
@@ -66,9 +71,9 @@ async function loadAnalytics() {
     tr.innerHTML = `
       <td>${r.name}</td>
       <td>${r.entryCount}</td>
-      <td>${r.avgMinutes}</td>
-      <td>${r.totalHours.toFixed(1)}</td>
       <td>${r.totalMinutes.toFixed(1)}</td>
+      <td>${r.totalHours.toFixed(1)}</td>
+      <td>${r.avgMinutes.toFixed(1)}</td>
     `;
     tbody.appendChild(tr);
   }
@@ -76,19 +81,32 @@ async function loadAnalytics() {
 
 document.getElementById('logForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const payload = {
-    agentId: document.getElementById('agentId').value,
-    candidateId: document.getElementById('candidateId').value,
-    date: document.getElementById('date').value,
-    minutes: Number(document.getElementById('minutes').value),
-  };
+  const agentId = document.getElementById('agentId').value;
+  const candidateId = document.getElementById('candidateId').value;
+  const date = document.getElementById('date').value;
+  const minutesRaw = document.getElementById('minutes').value;
+  const minutes = Number(minutesRaw);
+
+  if (!agentId || !candidateId || !date || minutesRaw === '' || !Number.isInteger(minutes) || minutes < 1 || minutes > 480) {
+    showToast('Fill every field — minutes must be a whole number between 1 and 480.', true);
+    return;
+  }
+
   const res = await fetch('/api/logs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ agentId, candidateId, date, minutes }),
   });
-  showToast('Log added!');
-  loadLogs();
+
+  if (res.ok) {
+    showToast('Log added!');
+    e.target.reset();
+    loadLogs();
+    loadAnalytics();
+  } else {
+    const body = await res.json().catch(() => ({}));
+    showToast(body.error || 'Failed to add log', true);
+  }
 });
 
 document.getElementById('filterAgentId').addEventListener('change', loadLogs);
